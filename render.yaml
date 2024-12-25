@@ -1,0 +1,59 @@
+services:
+  - type: web
+    name: 2d3d-lottery-backend
+    env: php
+    buildCommand: |
+      # Install system dependencies
+      apt-get update && apt-get install -y \
+        libpq-dev \
+        postgresql-client
+      
+      # Install PHP extensions
+      docker-php-ext-install pdo pdo_pgsql
+      
+      # Install Composer dependencies
+      composer install --no-dev --optimize-autoloader
+      
+      # Run database migrations
+      php database/migrate.php
+    startCommand: php -S 0.0.0.0:$PORT public/index.php
+    envVars:
+      - key: APP_ENV
+        value: production
+      - key: APP_DEBUG
+        value: "false"
+      - key: APP_KEY
+        generateValue: true
+      - key: JWT_SECRET
+        generateValue: true
+      - key: DB_CONNECTION
+        value: pgsql
+      - key: DB_HOST
+        fromDatabase:
+          name: db_2d3d_lottery_db
+          property: host
+      - key: DB_PORT
+        fromDatabase:
+          name: db_2d3d_lottery_db
+          property: port
+      - key: DB_NAME
+        fromDatabase:
+          name: db_2d3d_lottery_db
+          property: database
+      - key: DB_USER
+        fromDatabase:
+          name: db_2d3d_lottery_db
+          property: user
+      - key: DB_PASS
+        fromDatabase:
+          name: db_2d3d_lottery_db
+          property: password
+      - key: TIMEZONE
+        value: "Asia/Yangon"
+      - key: CORS_ALLOWED_ORIGINS
+        value: "https://2d3d-lottery.onrender.com"
+
+databases:
+  - name: db_2d3d_lottery_db
+    plan: starter
+    ipAllowList: [] 
