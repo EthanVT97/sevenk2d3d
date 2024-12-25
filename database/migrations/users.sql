@@ -1,51 +1,13 @@
 CREATE TABLE users (
-    id INT PRIMARY KEY AUTO_INCREMENT,
+    id INT AUTO_INCREMENT PRIMARY KEY,
     username VARCHAR(50) UNIQUE NOT NULL,
+    email VARCHAR(100) UNIQUE NOT NULL,
+    phone VARCHAR(20) UNIQUE NOT NULL,
     password VARCHAR(255) NOT NULL,
-    phone VARCHAR(20) NOT NULL,
-    balance DECIMAL(12,2) DEFAULT 0,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-
-CREATE TABLE transactions (
-    id INT PRIMARY KEY AUTO_INCREMENT,
-    user_id INT NOT NULL,
-    type ENUM('deposit', 'withdraw') NOT NULL,
-    amount DECIMAL(12,2) NOT NULL,
-    status ENUM('pending', 'approved', 'rejected') DEFAULT 'pending',
-    image_url VARCHAR(255),
+    role ENUM('user', 'admin') DEFAULT 'user',
+    status ENUM('active', 'inactive', 'banned') DEFAULT 'active',
+    balance DECIMAL(10,2) DEFAULT 0.00,
+    last_login TIMESTAMP NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (user_id) REFERENCES users(id)
-);
-
-CREATE TABLE bets_2d (
-    id INT PRIMARY KEY AUTO_INCREMENT,
-    user_id INT NOT NULL,
-    time ENUM('morning', 'evening') NOT NULL,
-    type ENUM('straight', 'reverse', 'twin', 'power', 'round') NOT NULL,
-    numbers VARCHAR(255) NOT NULL,
-    amount DECIMAL(12,2) NOT NULL,
-    status ENUM('pending', 'won', 'lost') DEFAULT 'pending',
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (user_id) REFERENCES users(id)
-);
-
-CREATE TABLE bets_3d (
-    id INT PRIMARY KEY AUTO_INCREMENT,
-    user_id INT NOT NULL,
-    type ENUM('straight', 'permutation', 'twin', 'front2', 'back2') NOT NULL,
-    numbers VARCHAR(255) NOT NULL,
-    amount DECIMAL(12,2) NOT NULL,
-    status ENUM('pending', 'won', 'lost') DEFAULT 'pending',
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (user_id) REFERENCES users(id)
-);
-
-CREATE TABLE winning_numbers (
-    id INT PRIMARY KEY AUTO_INCREMENT,
-    date DATE NOT NULL,
-    morning_2d VARCHAR(2),
-    evening_2d VARCHAR(2),
-    three_d VARCHAR(3),
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-); 
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci; 

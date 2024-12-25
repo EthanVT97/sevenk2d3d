@@ -1,63 +1,79 @@
 <?php
 namespace App\Controllers;
 
-use App\Database\Connection;
-use Firebase\JWT\JWT;
+use App\Services\AuthService;
+use Exception;
 
 class AuthController {
-    private $conn;
-    private $key;
+    private $authService;
 
     public function __construct() {
-        $db = Connection::getInstance();
-        $this->conn = $db->getConnection();
-        $this->key = getenv('JWT_SECRET');
+        $this->authService = new AuthService();
     }
 
     public function login() {
         try {
             $data = json_decode(file_get_contents('php://input'), true);
             
-            if (!isset($data['phone']) || !isset($data['password'])) {
-                throw new \Exception('Phone and password are required');
+            if (!isset($data['username']) || !isset($data['password'])) {
+                throw new Exception('Username and password are required');
             }
 
-            $stmt = $this->conn->prepare("
-                SELECT id, name, phone, password, role 
-                FROM users 
-                WHERE phone = :phone
-            ");
+            $result = $this->authService->login($data['username'], $data['password']);
             
-            $stmt->execute(['phone' => $data['phone']]);
-            $user = $stmt->fetch();
-
-            if (!$user || !password_verify($data['password'], $user['password'])) {
-                throw new \Exception('Invalid credentials');
-            }
-
-            $token = JWT::encode([
-                'sub' => $user['id'],
-                'name' => $user['name'],
-                'role' => $user['role'],
-                'exp' => time() + (60 * 60) // 1 hour
-            ], $this->key, 'HS256');
-
-            return [
+            http_response_code(200);
+            echo json_encode([
                 'status' => 'success',
-                'token' => $token,
-                'user' => [
-                    'id' => $user['id'],
-                    'name' => $user['name'],
-                    'role' => $user['role']
-                ]
-            ];
-
-        } catch (\Exception $e) {
+                'data' => $result
+            ]);
+        } catch (Exception $e) {
             http_response_code(401);
-            return [
+            echo json_encode([
                 'status' => 'error',
                 'message' => $e->getMessage()
-            ];
+            ]);
+        }
+    }
+
+    public function register() {
+        try {
+            $data = json_decode(file_get_contents('php://input'), true);
+            
+            if (!isset($data['username']) || !isset($data['password']) || !isset($data['email'])) {
+                throw new Exception('Username, password and email are required');
+            }
+
+            $result = $this->authService->register($data);
+            
+            http_response_code(201);
+            echo json_encode([
+                'status' => 'success',
+                'data' => $result
+            ]);
+        } catch (Exception $e) {
+            http_response_code(400);
+            echo json_encode([
+                'status' => 'error',
+                'message' => $e->getMessage()
+            ]);
+        }
+    }
+
+    public function logout() {
+        try {
+            $this->authService->logout();
+            
+            http_response_code(200);
+            echo json_encode([
+                'status' => 'success',
+                'message' => 'Logged out successfully'
+            ]);
+        } catch (Exception $e) {
+            http_response_code(500);
+            echo json_encode([
+                'status' => 'error',
+                'message' => $e->getMessage()
+            ]);
         }
     }
 } 

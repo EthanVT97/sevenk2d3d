@@ -6,49 +6,48 @@ use Firebase\JWT\Key;
 use Exception;
 
 class AuthMiddleware {
-    private $key;
+    private $excludedPaths = [
+        '/api/auth/login',
+        '/api/auth/register'
+    ];
 
-    public function __construct() {
-        $this->key = getenv('JWT_SECRET');
-    }
+    public function handle($request, $next) {
+        $path = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
 
-    public function authenticate() {
+        // Skip authentication for excluded paths
+        if (in_array($path, $this->excludedPaths)) {
+            return $next($request);
+        }
+
+        $token = $this->getBearerToken();
+
+        if (!$token) {
+            http_response_code(401);
+            echo json_encode(['error' => 'No token provided']);
+            exit();
+        }
+
         try {
-            $headers = getallheaders();
-            
-            if (!isset($headers['Authorization'])) {
-                throw new Exception('No token provided');
-            }
-
-            $token = str_replace('Bearer ', '', $headers['Authorization']);
-            
-            $decoded = JWT::decode($token, new Key($this->key, 'HS256'));
-            
-            // Check token expiration
-            if ($decoded->exp < time()) {
-                throw new Exception('Token has expired');
-            }
-
-            // Add user info to request
-            $_REQUEST['user'] = [
-                'id' => $decoded->sub,
-                'name' => $decoded->name,
-                'role' => $decoded->role
-            ];
-
-            return true;
-
+            $decoded = JWT::decode($token, new Key($_ENV['JWT_SECRET'], 'HS256'));
+            $request['user'] = $decoded;
+            return $next($request);
         } catch (Exception $e) {
             http_response_code(401);
-            echo json_encode([
-                'status' => 'error',
-                'message' => 'Unauthorized: ' . $e->getMessage()
-            ]);
-            exit;
+            echo json_encode(['error' => 'Invalid token']);
+            exit();
         }
     }
 
-    public function hasRole($requiredRole) {
-        return $_REQUEST['user']['role'] === $requiredRole;
+    private function getBearerToken() {
+        $headers = getallheaders();
+        if (!isset($headers['Authorization'])) {
+            return null;
+        }
+
+        if (preg_match('/Bearer\s(\S+)/', $headers['Authorization'], $matches)) {
+            return $matches[1];
+        }
+
+        return null;
     }
 } 
