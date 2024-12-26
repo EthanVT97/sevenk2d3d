@@ -1,13 +1,16 @@
 #!/bin/bash
 
-# Check if nginx is running
-if ! pgrep nginx > /dev/null; then
-    echo "Nginx is not running"
+# Check if Apache is running
+if ! pgrep apache2 > /dev/null; then
+    echo "Apache is not running"
     exit 1
 fi
 
-# Try to fetch the index page
-response=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:$PORT)
+# Get port from environment or default to 80
+PORT=${PORT:-80}
+
+# Try to fetch the health endpoint
+response=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:${PORT}/health)
 
 if [ "$response" = "200" ]; then
     echo "Health check passed"

@@ -1,11 +1,35 @@
 FROM php:8.2-apache
 
-# Install dependencies and Apache modules
+# Install system dependencies
 RUN apt-get update && apt-get install -y \
+    libpq-dev \
+    libzip-dev \
     libssl-dev \
     ssl-cert \
-    && rm -rf /var/lib/apt/lists/* \
-    && a2enmod rewrite headers ssl proxy proxy_http http2
+    zip \
+    unzip \
+    git \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install PHP extensions
+RUN docker-php-ext-install \
+    pdo \
+    pdo_pgsql \
+    pgsql \
+    zip \
+    opcache
+
+# Enable Apache modules
+RUN a2enmod \
+    rewrite \
+    headers \
+    ssl \
+    proxy \
+    proxy_http \
+    http2
+
+# Install Composer
+COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 
 # Copy Apache configuration
 COPY docker/000-default.conf /etc/apache2/sites-available/000-default.conf
@@ -13,12 +37,19 @@ COPY docker/000-default.conf /etc/apache2/sites-available/000-default.conf
 # Set working directory
 WORKDIR /var/www/html
 
+# Copy composer files
+COPY composer.json composer.lock ./
+
+# Install dependencies
+RUN composer install --no-dev --optimize-autoloader --no-scripts
+
 # Copy application files
 COPY . .
 
 # Set permissions
 RUN chown -R www-data:www-data /var/www/html \
-    && chmod -R 755 /var/www/html
+    && chmod -R 755 /var/www/html \
+    && chmod -R 777 /var/www/html/storage
 
 # Copy health check script
 COPY scripts/healthcheck.sh /usr/local/bin/
@@ -26,7 +57,15 @@ RUN chmod +x /usr/local/bin/healthcheck.sh
 
 # Create required directories
 RUN mkdir -p /var/log/apache2 \
-    && mkdir -p /var/run/apache2
+    && mkdir -p /var/run/apache2 \
+    && mkdir -p /var/www/html/storage/logs \
+    && mkdir -p /var/www/html/storage/framework/cache \
+    && mkdir -p /var/www/html/storage/framework/sessions \
+    && mkdir -p /var/www/html/storage/framework/views \
+    && chown -R www-data:www-data /var/www/html/storage
+
+# Copy PHP configuration
+COPY docker/php/custom.ini /usr/local/etc/php/conf.d/custom.ini
 
 # Environment variables
 ENV APACHE_LOG_DIR=/var/log/apache2 \
