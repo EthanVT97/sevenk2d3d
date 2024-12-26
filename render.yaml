@@ -2,18 +2,18 @@ services:
   - type: web
     name: twod3d-lottery-api
     env: php
-    plan: starter
-    buildCommand: composer install --no-dev --optimize-autoloader
+    buildCommand: |
+      apt-get update && apt-get install -y \
+        libpq-dev \
+        redis-server
+      pecl install redis
+      docker-php-ext-enable redis
+      chmod +x docker/start.sh
+      chmod +x scripts/deploy-checklist.sh
+      composer install --no-dev --optimize-autoloader
     startCommand: heroku-php-apache2 public/
     healthCheckPath: /health.php
-    autoDeploy: true
     envVars:
-      - key: APP_ENV
-        value: production
-      - key: APP_DEBUG
-        value: false
-      - key: APP_KEY
-        generateValue: true
       - key: DB_HOST
         fromDatabase:
           name: twod3d-lottery-db
@@ -32,31 +32,23 @@ services:
           property: password
       - key: JWT_SECRET
         generateValue: true
+      - key: REDIS_URL
+        fromService:
+          name: twod3d-lottery-redis
+          type: redis
+          property: connectionString
       - key: CORS_ORIGIN
         value: https://twod3d-lottery.onrender.com
-      - key: REDIS_HOST
-        fromService:
-          type: redis
-          name: twod3d-lottery-cache
-          property: host
-      - key: REDIS_PORT
-        fromService:
-          type: redis
-          name: twod3d-lottery-cache
-          property: port
-      - key: REDIS_PASSWORD
-        fromService:
-          type: redis
-          name: twod3d-lottery-cache
-          property: password
+      - key: APP_ENV
+        value: production
+      - key: APP_DEBUG
+        value: false
 
   - type: redis
-    name: twod3d-lottery-cache
-    plan: free
-    maxmemoryPolicy: allkeys-lru
+    name: twod3d-lottery-redis
     ipAllowList: []
+    plan: free
 
 databases:
   - name: twod3d-lottery-db
-    plan: free
-    ipAllowList: [] 
+    plan: free 
