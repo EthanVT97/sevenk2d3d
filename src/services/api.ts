@@ -1,76 +1,54 @@
 import axios from 'axios';
 
+const API_URL = process.env.REACT_APP_API_URL || 'https://twod3d-lottery-api-q68w.onrender.com';
+const API_TIMEOUT = Number(process.env.REACT_APP_API_TIMEOUT) || 30000;
+
 const api = axios.create({
-  baseURL: process.env.REACT_APP_API_URL || 'http://localhost:8000/api',
+  baseURL: API_URL,
+  timeout: API_TIMEOUT,
   headers: {
     'Content-Type': 'application/json',
   },
 });
 
-// Add a request interceptor
-api.interceptors.request.use(
-  (config) => {
-    const token = localStorage.getItem('token');
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
-    }
-    return config;
-  },
-  (error) => {
-    return Promise.reject(error);
+// Add request interceptor to include auth token
+api.interceptors.request.use((config) => {
+  const token = localStorage.getItem('token');
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
   }
-);
+  return config;
+});
 
-// Add a response interceptor
-api.interceptors.response.use(
-  (response) => response,
-  async (error) => {
-    const originalRequest = error.config;
+// Auth APIs
+export const login = (phone: string, password: string) => 
+  api.post('/api/auth/login', { phone, password });
 
-    // If the error status is 401 and there is no originalRequest._retry flag,
-    // it means the token has expired and we need to refresh it
-    if (error.response.status === 401 && !originalRequest._retry) {
-      originalRequest._retry = true;
+export const register = (name: string, phone: string, password: string) => 
+  api.post('/api/auth/register', { name, phone, password });
 
-      try {
-        const token = localStorage.getItem('token');
-        if (!token) {
-          throw new Error('No token found');
-        }
+// Betting APIs
+export const place2DBet = (numbers: string[], amounts: number[]) => 
+  api.post('/api/bets/2d', { numbers, amounts });
 
-        // Try to refresh the token
-        const response = await axios.post(
-          `${process.env.REACT_APP_API_URL}/auth/refresh`,
-          {},
-          {
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
-          }
-        );
+export const place3DBet = (numbers: string[], amounts: number[]) => 
+  api.post('/api/bets/3d', { numbers, amounts });
 
-        const { token: newToken } = response.data;
+export const getBettingHistory = (page = 1, limit = 10) => 
+  api.get(`/api/bets/history?page=${page}&limit=${limit}`);
 
-        // Save the new token
-        localStorage.setItem('token', newToken);
+// Transaction APIs
+export const deposit = (amount: number, transactionId: string) => 
+  api.post('/api/transactions/deposit', { amount, transactionId });
 
-        // Update the authorization header
-        api.defaults.headers.common['Authorization'] = `Bearer ${newToken}`;
-        originalRequest.headers.Authorization = `Bearer ${newToken}`;
+export const withdraw = (amount: number, accountInfo: string) => 
+  api.post('/api/transactions/withdraw', { amount, accountInfo });
 
-        // Retry the original request
-        return api(originalRequest);
-      } catch (error) {
-        // If refresh token fails, logout user...
-        localStorage.removeItem('token');
-        delete api.defaults.headers.common['Authorization'];
-        window.location.href = '/login';
-        return Promise.reject(error);
-      }
-    }
+// Game Status APIs
+export const get2DStatus = () => 
+  api.get('/api/games/2d/status');
 
-    return Promise.reject(error);
-  }
-);
+export const get3DStatus = () => 
+  api.get('/api/games/3d/status');
 
-export { api }; 
+export default api; 
