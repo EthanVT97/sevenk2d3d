@@ -10,33 +10,47 @@ $dotenv->safeLoad();
 header('Content-Type: application/json');
 
 try {
-    // Check if required environment variables are set
-    $required_vars = ['DB_HOST', 'DB_NAME', 'DB_USER', 'DB_PASS'];
-    $missing_vars = [];
-    
-    foreach ($required_vars as $var) {
-        if (!isset($_ENV[$var])) {
-            $missing_vars[] = $var;
+    // Check for DATABASE_URL first
+    if (isset($_ENV['DATABASE_URL'])) {
+        $dbUrl = parse_url($_ENV['DATABASE_URL']);
+        $host = $dbUrl['host'];
+        $port = $dbUrl['port'] ?? '5432';
+        $dbname = ltrim($dbUrl['path'], '/');
+        $user = $dbUrl['user'];
+        $password = $dbUrl['pass'];
+        
+        $dsn = sprintf('pgsql:host=%s;port=%s;dbname=%s', $host, $port, $dbname);
+    } else {
+        // Check if required environment variables are set
+        $required_vars = ['DB_HOST', 'DB_NAME', 'DB_USER', 'DB_PASS'];
+        $missing_vars = [];
+        
+        foreach ($required_vars as $var) {
+            if (!isset($_ENV[$var])) {
+                $missing_vars[] = $var;
+            }
         }
-    }
-    
-    if (!empty($missing_vars)) {
-        throw new Exception('Missing required environment variables: ' . implode(', ', $missing_vars));
-    }
+        
+        if (!empty($missing_vars)) {
+            throw new Exception('Missing required environment variables: ' . implode(', ', $missing_vars));
+        }
 
-    $host = $_ENV['DB_HOST'];
-    $dbname = $_ENV['DB_NAME'];
-    $port = $_ENV['DB_PORT'] ?? '5432';
+        $host = $_ENV['DB_HOST'];
+        $dbname = $_ENV['DB_NAME'];
+        $port = $_ENV['DB_PORT'] ?? '5432';
+        $user = $_ENV['DB_USER'];
+        $password = $_ENV['DB_PASS'];
+        
+        $dsn = sprintf('pgsql:host=%s;dbname=%s;port=%s', $host, $port, $dbname);
+    }
     
-    $dsn = sprintf('pgsql:host=%s;dbname=%s;port=%s', $host, $dbname, $port);
-    
-    // Add connection timeout
+    // Add connection timeout and other options
     $options = [
         PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
         PDO::ATTR_TIMEOUT => 5,
     ];
     
-    $pdo = new PDO($dsn, $_ENV['DB_USER'], $_ENV['DB_PASS'], $options);
+    $pdo = new PDO($dsn, $user, $password, $options);
     
     // Test the connection with a simple query
     $stmt = $pdo->query('SELECT version()');
@@ -49,7 +63,8 @@ try {
             'host' => $host,
             'database' => $dbname,
             'port' => $port,
-            'version' => $version
+            'version' => $version,
+            'connection_type' => isset($_ENV['DATABASE_URL']) ? 'url' : 'parameters'
         ]
     ]);
 
@@ -63,7 +78,8 @@ try {
             'host' => $host ?? null,
             'database' => $dbname ?? null,
             'port' => $port ?? null,
-            'error_code' => $e->getCode()
+            'error_code' => $e->getCode(),
+            'connection_type' => isset($_ENV['DATABASE_URL']) ? 'url' : 'parameters'
         ]
     ]);
 } 
