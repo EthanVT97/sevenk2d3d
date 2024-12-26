@@ -10,10 +10,11 @@ try {
     $pass = getenv('DB_PASS');
     $port = getenv('DB_PORT') ?: '5432';
 
-    $dsn = "pgsql:host=$host;port=$port;dbname=$dbname;";
+    $dsn = "pgsql:host=$host;port=$port;dbname=$dbname;sslmode=require";
     $options = [
         PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
-        PDO::ATTR_TIMEOUT => 5
+        PDO::ATTR_TIMEOUT => 5,
+        PDO::ATTR_PERSISTENT => true
     ];
 
     $pdo = new PDO($dsn, $user, $pass, $options);
@@ -26,7 +27,8 @@ try {
         'config' => [
             'host' => $host,
             'database' => $dbname,
-            'port' => $port
+            'port' => $port,
+            'ssl_mode' => 'require'
         ]
     ]);
     exit(0);
@@ -34,7 +36,13 @@ try {
     echo json_encode([
         'status' => 'error',
         'message' => 'Database connection failed',
-        'error' => $e->getMessage()
+        'error' => $e->getMessage(),
+        'config' => [
+            'host' => $host,
+            'database' => $dbname,
+            'port' => $port,
+            'ssl_mode' => 'require'
+        ]
     ]);
     exit(1);
 } 

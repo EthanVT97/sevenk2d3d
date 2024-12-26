@@ -8,7 +8,8 @@ $health = [
     'timestamp' => date('Y-m-d H:i:s'),
     'checks' => [
         'database' => [
-            'status' => 'unknown'
+            'status' => 'unknown',
+            'error' => null
         ],
         'application' => [
             'status' => 'healthy',
@@ -18,8 +19,8 @@ $health = [
 ];
 
 try {
-    // Test PostgreSQL connection
-    $dsn = sprintf('pgsql:host=%s;dbname=%s;port=%s', 
+    // Test PostgreSQL - Render uses PostgreSQL
+    $dsn = sprintf('pgsql:host=%s;dbname=%s;port=%s;sslmode=require', 
         getenv('DB_HOST'), 
         getenv('DB_NAME'),
         getenv('DB_PORT') ?? '5432'
@@ -32,9 +33,10 @@ try {
     );
     
     $stmt = $pdo->query('SELECT version()');
+    $version = $stmt->fetch(PDO::FETCH_COLUMN);
     $health['checks']['database'] = [
         'status' => 'connected',
-        'version' => $stmt->fetch(PDO::FETCH_COLUMN)
+        'version' => $version
     ];
 
 } catch (Exception $e) {
