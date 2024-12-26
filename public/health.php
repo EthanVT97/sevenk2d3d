@@ -9,6 +9,11 @@ $health = [
     'timestamp' => date('Y-m-d H:i:s'),
     'environment' => getenv('APP_ENV'),
     'request_id' => uniqid(),
+    'request_info' => [
+        'source_ip' => $_SERVER['REMOTE_ADDR'] ?? 'unknown',
+        'user_agent' => $_SERVER['HTTP_USER_AGENT'] ?? 'unknown',
+        'request_time' => $_SERVER['REQUEST_TIME_FLOAT'] ?? microtime(true)
+    ],
     'checks' => [
         'database' => [
             'status' => 'checking',
@@ -39,27 +44,36 @@ $health = [
             'memory_usage' => memory_get_usage(true),
             'peak_memory_usage' => memory_get_peak_usage(true),
             'server_software' => $_SERVER['SERVER_SOFTWARE'] ?? 'unknown',
-            'php_version' => PHP_VERSION
+            'php_version' => PHP_VERSION,
+            'load_average' => sys_getloadavg()
         ]
     ]
 ];
 
+// Set initial status code - will be overwritten if healthy
+http_response_code(503);
+
 try {
     // Log health check start with detailed information
     error_log(sprintf(
-        "[Health Check] %s - Starting health check - Environment: %s, Memory: %s, PHP Version: %s",
+        "[Health Check] %s - Starting health check - Environment: %s, Source: %s, Agent: %s",
         $health['request_id'],
         getenv('APP_ENV'),
-        memory_get_usage(true),
-        PHP_VERSION
+        $health['request_info']['source_ip'],
+        $health['request_info']['user_agent']
     ));
     
     // Validate required environment variables
     $required_vars = ['DB_HOST', 'DB_NAME', 'DB_USER', 'DB_PASS'];
+    $missing_vars = [];
     foreach ($required_vars as $var) {
         if (!getenv($var)) {
-            throw new Exception("Required environment variable missing: {$var}");
+            $missing_vars[] = $var;
         }
+    }
+    
+    if (!empty($missing_vars)) {
+        throw new Exception("Required environment variables missing: " . implode(', ', $missing_vars));
     }
     
     $dsn = sprintf(
@@ -83,11 +97,16 @@ try {
     );
     $connectionTime = microtime(true) - $startTime;
     
+    if ($connectionTime > 1) {
+        throw new Exception("Database connection time exceeded threshold: {$connectionTime}s");
+    }
+    
     // Test the connection with multiple queries
     $checks = [
         'version' => 'SELECT version()',
         'current_time' => 'SELECT NOW()',
-        'connection_count' => 'SELECT count(*) FROM pg_stat_activity'
+        'connection_count' => 'SELECT count(*) FROM pg_stat_activity',
+        'max_connections' => 'SHOW max_connections'
     ];
     
     $dbResults = [];
@@ -96,11 +115,19 @@ try {
         $dbResults[$key] = $stmt->fetch(PDO::FETCH_COLUMN);
     }
     
+    // Check if we're approaching connection limit
+    $connectionUsage = ($dbResults['connection_count'] / $dbResults['max_connections']) * 100;
+    if ($connectionUsage > 80) {
+        throw new Exception("High database connection usage: {$connectionUsage}%");
+    }
+    
     error_log(sprintf(
-        "[Health Check] %s - Database connection successful - Time: %.4fs, Connections: %s",
+        "[Health Check] %s - Database connection successful - Time: %.4fs, Connections: %s/%s (%.1f%%)",
         $health['request_id'],
         $connectionTime,
-        $dbResults['connection_count']
+        $dbResults['connection_count'],
+        $dbResults['max_connections'],
+        $connectionUsage
     ));
     
     $health['status'] = 'healthy';
@@ -109,10 +136,15 @@ try {
         'version' => $dbResults['version'],
         'server_time' => $dbResults['current_time'],
         'active_connections' => $dbResults['connection_count'],
+        'max_connections' => $dbResults['max_connections'],
+        'connection_usage' => round($connectionUsage, 2) . '%',
         'config' => $health['checks']['database']['config'],
-        'connection_time' => $connectionTime,
-        'latency' => $connectionTime
+        'connection_time' => round($connectionTime, 4),
+        'latency' => round($connectionTime, 4)
     ];
+    
+    // Only set 200 status if everything is truly healthy
+    http_response_code(200);
 
 } catch (Exception $e) {
     $errorTime = microtime(true);
@@ -136,13 +168,11 @@ try {
         'error_time' => $errorTime,
         'stack_trace' => explode("\n", $e->getTraceAsString())
     ];
-    
-    // Set appropriate status code for service unavailable
-    http_response_code(503);
 }
 
 // Add response time and final memory usage
 $health['response_time'] = microtime(true);
+$health['duration'] = round($health['response_time'] - $health['request_info']['request_time'], 4);
 $health['checks']['system']['final_memory_usage'] = memory_get_usage(true);
 
 echo json_encode($health, JSON_PRETTY_PRINT); 
