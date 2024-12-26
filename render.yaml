@@ -1,85 +1,22 @@
 services:
   - type: web
-<<<<<<< HEAD
     name: twod3d-lottery
-    env: docker
-    dockerfilePath: ./Dockerfile
-    dockerContext: .
-    envVars:
-      - key: APP_ENV
-        value: production
+    env: static
+    buildCommand: npm install && npm run build
+    staticPublishPath: ./public
+    pullRequestPreviewsEnabled: true
     headers:
       - path: /*
         name: Cache-Control
-        value: public, max-age=31536000
-      - path: /static/*
-        name: Cache-Control
-        value: public, max-age=31536000, immutable
-      - path: /index.html
-        name: Cache-Control
         value: no-cache
-      - path: /*
-        name: X-Frame-Options
-        value: SAMEORIGIN
-      - path: /*
-        name: X-Content-Type-Options
-        value: nosniff
-      - path: /*
-        name: Access-Control-Allow-Origin
-        value: https://twod3d-lottery-api-q68w.onrender.com 
-=======
-    name: twod3d-lottery-api
-    env: php
-    buildCommand: |
-      apt-get update && apt-get install -y \
-        libpq-dev \
-        redis-server
-      pecl install redis
-      docker-php-ext-enable redis
-      chmod +x docker/start.sh
-      chmod +x scripts/deploy-checklist.sh
-      composer install --no-dev --optimize-autoloader
-    startCommand: heroku-php-apache2 public/
-    healthCheckPath: /health.php
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
     envVars:
-      - key: DB_HOST
-        fromDatabase:
-          name: twod3d-lottery-db
-          property: host
-      - key: DB_NAME
-        fromDatabase:
-          name: twod3d-lottery-db
-          property: database
-      - key: DB_USER
-        fromDatabase:
-          name: twod3d-lottery-db
-          property: user
-      - key: DB_PASS
-        fromDatabase:
-          name: twod3d-lottery-db
-          property: password
-      - key: DB_SSL_MODE
-        value: require
-      - key: JWT_SECRET
-        generateValue: true
-      - key: REDIS_URL
-        fromService:
-          name: twod3d-lottery-redis
-          type: redis
-          property: connectionString
-      - key: CORS_ORIGIN
-        value: ${CORS_ORIGIN:-https://twod3d-lottery.onrender.com}
+      - key: NODE_VERSION
+        value: 18.17.0
+      - key: API_URL
+        value: https://twod3d-lottery-api-q68w.onrender.com
       - key: APP_ENV
         value: production
-      - key: APP_DEBUG
-        value: false
-
-  - type: redis
-    name: twod3d-lottery-redis
-    ipAllowList: []
-    plan: free
-
-databases:
-  - name: twod3d-lottery-db
-    plan: free 
->>>>>>> aa145722f6a011a22d3e9f2b280787ab3c45a8fc
