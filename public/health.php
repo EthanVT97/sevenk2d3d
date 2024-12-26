@@ -9,10 +9,24 @@ header('X-XSS-Protection: 1; mode=block');
 header('Content-Security-Policy: default-src \'self\'');
 header('Referrer-Policy: strict-origin-when-cross-origin');
 
-// CORS headers
-header('Access-Control-Allow-Origin: ' . (getenv('CORS_ORIGIN') ?: '*'));
+// Define allowed origins
+$allowedOrigins = [
+    'https://2d3d-lottery.onrender.com',
+    'https://twod3d-lottery.onrender.com'
+];
+
+// Get the current origin
+$origin = $_SERVER['HTTP_ORIGIN'] ?? '';
+
+// Set CORS headers based on origin
+if (in_array($origin, $allowedOrigins)) {
+    header('Access-Control-Allow-Origin: ' . $origin);
+} else {
+    header('Access-Control-Allow-Origin: ' . $allowedOrigins[0]); // Default to primary domain
+}
 header('Access-Control-Allow-Methods: GET, OPTIONS');
 header('Access-Control-Allow-Headers: Content-Type, Authorization');
+header('Access-Control-Max-Age: 86400'); // 24 hours
 
 // Handle preflight requests
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
@@ -49,10 +63,7 @@ $health = [
         'security' => [
             'status' => 'checking',
             'client_ip' => $_SERVER['HTTP_X_FORWARDED_FOR'] ?? $_SERVER['REMOTE_ADDR'],
-            'allowed_origins' => [
-                'https://2d3d-lottery.onrender.com',
-                'https://twod3d-lottery.onrender.com'
-            ]
+            'allowed_origins' => $allowedOrigins
         ],
         'application' => [
             'status' => 'healthy',
@@ -104,10 +115,8 @@ try {
 
     // Security check
     $clientIP = $_SERVER['HTTP_X_FORWARDED_FOR'] ?? $_SERVER['REMOTE_ADDR'];
-    $origin = $_SERVER['HTTP_ORIGIN'] ?? '';
     
     // Validate origin
-    $allowedOrigins = $health['checks']['security']['allowed_origins'];
     $isValidOrigin = empty($origin) || in_array($origin, $allowedOrigins);
     
     $health['checks']['security'] = [
