@@ -2,12 +2,25 @@
 require_once __DIR__ . '/../vendor/autoload.php';
 
 header('Content-Type: application/json');
+header('X-Content-Type-Options: nosniff');
+header('X-Frame-Options: SAMEORIGIN');
+header('X-XSS-Protection: 1; mode=block');
 
 $startTime = microtime(true);
+$requestId = uniqid('health_', true);
+
+// Define Render's outbound IPs
+$renderOutboundIPs = [
+    '13.228.225.19',
+    '18.142.128.26',
+    '54.254.162.138'
+];
 
 $health = [
     'status' => 'healthy',
     'timestamp' => date('Y-m-d H:i:s'),
+    'request_id' => $requestId,
+    'environment' => getenv('APP_ENV'),
     'checks' => [
         'database' => [
             'status' => 'checking',
@@ -17,6 +30,14 @@ $health = [
                 'host' => getenv('DB_HOST'),
                 'port' => getenv('DB_PORT') ?? '5432',
                 'ssl_mode' => getenv('DB_SSL_MODE') ?? 'require'
+            ]
+        ],
+        'security' => [
+            'status' => 'checking',
+            'client_ip' => $_SERVER['HTTP_X_FORWARDED_FOR'] ?? $_SERVER['REMOTE_ADDR'],
+            'allowed_origins' => [
+                'https://2d3d-lottery.onrender.com',
+                'https://twod3d-lottery.onrender.com'
             ]
         ],
         'application' => [
@@ -32,6 +53,7 @@ $health = [
 ];
 
 try {
+    // Database check
     $dsn = sprintf(
         'pgsql:host=%s;port=%s;dbname=%s;sslmode=require', 
         getenv('DB_HOST'), 
@@ -66,21 +88,36 @@ try {
         'config' => $health['checks']['database']['config']
     ];
 
+    // Security check
+    $clientIP = $_SERVER['HTTP_X_FORWARDED_FOR'] ?? $_SERVER['REMOTE_ADDR'];
+    $origin = $_SERVER['HTTP_ORIGIN'] ?? '';
+    
+    $health['checks']['security'] = [
+        'status' => 'healthy',
+        'client_ip' => $clientIP,
+        'origin' => $origin,
+        'render_ip' => in_array($clientIP, $renderOutboundIPs),
+        'allowed_origins' => $health['checks']['security']['allowed_origins']
+    ];
+
 } catch (Exception $e) {
     error_log(sprintf(
-        "[Health Check] Database Error: [%d] %s\nTrace: %s",
+        "[Health Check] %s - Error: [%d] %s\nTrace: %s",
+        $requestId,
         $e->getCode(),
         $e->getMessage(),
         $e->getTraceAsString()
     ));
     
     $health['status'] = 'unhealthy';
-    $health['checks']['database'] = [
-        'status' => 'error',
-        'error' => 'Database connection failed',
-        'error_code' => $e->getCode(),
-        'config' => $health['checks']['database']['config']
-    ];
+    if ($e instanceof PDOException) {
+        $health['checks']['database'] = [
+            'status' => 'error',
+            'error' => 'Database connection failed',
+            'error_code' => $e->getCode(),
+            'config' => $health['checks']['database']['config']
+        ];
+    }
     
     http_response_code(503);
 }
