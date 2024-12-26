@@ -1,10 +1,17 @@
 services:
   - type: web
     name: twod3d-lottery
-    env: static
-    buildCommand: npm install && npm run build
-    staticPublishPath: ./public
-    pullRequestPreviewsEnabled: true
+    env: docker
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_VERSION
+        value: 18.17.0
+      - key: API_URL
+        value: https://twod3d-lottery-api-q68w.onrender.com
+      - key: APP_ENV
+        value: production
     headers:
       - path: /*
         name: Cache-Control
@@ -13,10 +20,3 @@ services:
       - type: rewrite
         source: /*
         destination: /index.html
-    envVars:
-      - key: NODE_VERSION
-        value: 18.17.0
-      - key: API_URL
-        value: https://twod3d-lottery-api-q68w.onrender.com
-      - key: APP_ENV
-        value: production
