@@ -7,14 +7,23 @@ const config = {
     // API Endpoints
     ENDPOINTS: {
         AUTH: {
-            LOGIN: '/auth/login',
-            REGISTER: '/auth/register',
-            LOGOUT: '/auth/logout',
-            VERIFY: '/auth/verify'
+            LOGIN: '/auth/login.php',
+            REGISTER: '/auth/register.php',
+            LOGOUT: '/auth/logout.php',
+            VERIFY: '/auth/verify.php',
+            PROFILE: '/auth/profile.php',
+            CHANGE_PASSWORD: '/auth/change-password.php'
         },
         LOTTERY: {
-            LIVE: '/lottery/live',
-            HISTORY: '/lottery/history'
+            LIVE: '/lottery/live.php',
+            HISTORY: '/lottery/history.php',
+            BET: '/lottery/bet.php',
+            RESULTS: '/lottery/results.php'
+        },
+        TRANSACTION: {
+            DEPOSIT: '/transaction/deposit.php',
+            WITHDRAW: '/transaction/withdraw.php',
+            HISTORY: '/transaction/history.php'
         }
     },
     
@@ -38,13 +47,23 @@ const config = {
     AUTH: {
         TOKEN_KEY: 'auth_token',
         USER_KEY: 'user_data',
-        SESSION_DURATION: 86400 // ၂၄ နာရီ (စက္ကန့်ဖြင့်)
+        SESSION_DURATION: 86400, // ၂၄ နာရီ (စက္ကန့်ဖြင့်)
+        TOKEN_REFRESH_THRESHOLD: 3600 // ၁ နာရီ မတိုင်မီ token ပြန်လည်ရယူရန်
     },
 
     // Performance settings
     REFRESH_INTERVAL: 30000, // 30 seconds
     RATE_LIMIT: {
-        REQUESTS_PER_MINUTE: 60
+        REQUESTS_PER_MINUTE: 60,
+        RETRY_AFTER: 60 // seconds to wait after rate limit hit
+    },
+    
+    // Error messages
+    ERROR_MESSAGES: {
+        NETWORK_ERROR: 'ဆာဗာနှင့် ဆက်သွယ်၍ မရပါ။ အင်တာနက် ချိတ်ဆက်မှုကို စစ်ဆေးပါ',
+        SESSION_EXPIRED: 'သင့်အကောင့် သက်တမ်းကုန်ဆုံးသွားပါပြီ။ ပြန်လည်ဝင်ရောက်ပါ',
+        INVALID_CREDENTIALS: 'ဖုန်းနံပါတ် သို့မဟုတ် လျှို့ဝှက်နံပါတ် မှားယွင်းနေပါသည်',
+        RATE_LIMIT: 'တောင်းဆိုမှု များလွန်းပါသည်။ ခဏစောင့်ပြီး ပြန်လည်ကြိုးစားပါ'
     }
 };
 
