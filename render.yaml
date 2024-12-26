@@ -40,7 +40,7 @@ services:
           type: redis
           property: connectionString
       - key: CORS_ORIGIN
-        value: https://twod3d-lottery.onrender.com
+        value: ${CORS_ORIGIN:-https://twod3d-lottery.onrender.com}
       - key: APP_ENV
         value: production
       - key: APP_DEBUG
