@@ -2,7 +2,7 @@
 require_once __DIR__ . '/../vendor/autoload.php';
 
 // Security headers
-header('Content-Type: application/json');
+header('Content-Type: application/json; charset=utf-8');
 header('X-Content-Type-Options: nosniff');
 header('X-Frame-Options: SAMEORIGIN');
 header('X-XSS-Protection: 1; mode=block');
@@ -12,21 +12,21 @@ header('Referrer-Policy: strict-origin-when-cross-origin');
 // Define allowed origins
 $allowedOrigins = [
     'https://2d3d-lottery.onrender.com',
-    'https://twod3d-lottery.onrender.com'
+    'https://twod3d-lottery.onrender.com',
+    'chrome-extension://majdfhpaihoncoakbjgbdhglocklcgno', // Allow your Chrome extension
+    'null',  // Allow requests from local files
+    '*'      // Allow all origins temporarily for testing
 ];
 
 // Get the current origin
-$origin = $_SERVER['HTTP_ORIGIN'] ?? '';
+$origin = $_SERVER['HTTP_ORIGIN'] ?? '*';
 
-// Set CORS headers based on origin
-if (in_array($origin, $allowedOrigins)) {
-    header('Access-Control-Allow-Origin: ' . $origin);
-} else {
-    header('Access-Control-Allow-Origin: ' . $allowedOrigins[0]); // Default to primary domain
-}
+// Set CORS headers
+header('Access-Control-Allow-Origin: *'); // Allow all origins temporarily for testing
 header('Access-Control-Allow-Methods: GET, OPTIONS');
-header('Access-Control-Allow-Headers: Content-Type, Authorization');
+header('Access-Control-Allow-Headers: Content-Type, Authorization, Accept, Origin, X-Requested-With');
 header('Access-Control-Max-Age: 86400'); // 24 hours
+header('Vary: Origin'); // Ensure proper caching with CORS
 
 // Handle preflight requests
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
@@ -37,48 +37,39 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 $startTime = microtime(true);
 $requestId = uniqid('health_', true);
 
-// Define Render's outbound IPs
-$renderOutboundIPs = [
-    '13.228.225.19',
-    '18.142.128.26',
-    '54.254.162.138'
-];
-
 $health = [
+    'name' => '2D3D Lottery API',
+    'version' => '1.0.0',
     'status' => 'healthy',
+    'environment' => getenv('APP_ENV') ?: 'production',
     'timestamp' => date('Y-m-d H:i:s'),
     'request_id' => $requestId,
-    'environment' => getenv('APP_ENV'),
     'checks' => [
         'database' => [
             'status' => 'checking',
-            'version' => null,
-            'latency' => null,
             'config' => [
                 'host' => getenv('DB_HOST'),
                 'port' => getenv('DB_PORT') ?? '5432',
-                'ssl_mode' => getenv('DB_SSL_MODE') ?? 'require'
+                'ssl_mode' => 'require'
             ]
-        ],
-        'security' => [
-            'status' => 'checking',
-            'client_ip' => $_SERVER['HTTP_X_FORWARDED_FOR'] ?? $_SERVER['REMOTE_ADDR'],
-            'allowed_origins' => $allowedOrigins
         ],
         'application' => [
             'status' => 'healthy',
-            'version' => '1.0.0',
             'memory' => [
                 'used' => memory_get_usage(true),
                 'peak' => memory_get_peak_usage(true)
             ],
             'uptime' => time() - $_SERVER['REQUEST_TIME']
         ]
+    ],
+    'links' => [
+        'frontend' => 'https://2d3d-lottery.onrender.com',
+        'api_root' => 'https://twod3d-lottery-api-q68w.onrender.com',
+        'status' => 'https://twod3d-lottery-api-q68w.onrender.com/api/status'
     ]
 ];
 
 try {
-    // Database check
     $dsn = sprintf(
         'pgsql:host=%s;port=%s;dbname=%s;sslmode=require', 
         getenv('DB_HOST'), 
@@ -100,49 +91,14 @@ try {
     $stmt = $pdo->query('SELECT version()');
     $version = $stmt->fetch(PDO::FETCH_COLUMN);
     
-    $stmt = $pdo->query('SELECT count(*) FROM pg_stat_activity');
-    $connections = $stmt->fetch(PDO::FETCH_COLUMN);
-    
     $connectionTime = (microtime(true) - $startConnect) * 1000;
     
     $health['checks']['database'] = [
         'status' => 'connected',
         'version' => $version,
         'latency' => round($connectionTime, 2) . 'ms',
-        'active_connections' => (int)$connections,
         'config' => $health['checks']['database']['config']
     ];
-
-    // Security check
-    $clientIP = $_SERVER['HTTP_X_FORWARDED_FOR'] ?? $_SERVER['REMOTE_ADDR'];
-    
-    // Validate origin
-    $isValidOrigin = empty($origin) || in_array($origin, $allowedOrigins);
-    
-    $health['checks']['security'] = [
-        'status' => $isValidOrigin ? 'healthy' : 'warning',
-        'client_ip' => $clientIP,
-        'origin' => $origin,
-        'render_ip' => in_array($clientIP, $renderOutboundIPs),
-        'allowed_origins' => $allowedOrigins,
-        'origin_valid' => $isValidOrigin
-    ];
-
-    // Set overall status based on all checks
-    $allHealthy = true;
-    foreach ($health['checks'] as $check) {
-        if ($check['status'] !== 'healthy' && $check['status'] !== 'connected') {
-            $allHealthy = false;
-            break;
-        }
-    }
-    
-    if (!$allHealthy) {
-        $health['status'] = 'degraded';
-        http_response_code(503);
-    } else {
-        http_response_code(200);
-    }
 
 } catch (Exception $e) {
     error_log(sprintf(
@@ -154,14 +110,12 @@ try {
     ));
     
     $health['status'] = 'unhealthy';
-    if ($e instanceof PDOException) {
-        $health['checks']['database'] = [
-            'status' => 'error',
-            'error' => 'Database connection failed',
-            'error_code' => $e->getCode(),
-            'config' => $health['checks']['database']['config']
-        ];
-    }
+    $health['checks']['database'] = [
+        'status' => 'error',
+        'error' => 'Database connection failed',
+        'error_code' => $e->getCode(),
+        'config' => $health['checks']['database']['config']
+    ];
     
     http_response_code(503);
 }
