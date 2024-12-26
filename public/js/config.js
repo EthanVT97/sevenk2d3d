@@ -1,7 +1,7 @@
 const config = {
     // API ဆာဗာလိပ်စာ
-    API_URL: process.env.REACT_APP_API_URL || 'https://twod3d-lottery-api-q68w.onrender.com',
-    APP_ENV: process.env.NODE_ENV || 'development',
+    API_URL: 'https://twod3d-lottery-api-q68w.onrender.com',
+    APP_ENV: 'production',
     
     // အနိမ့်ဆုံးထိုးငွေနှင့် ငွေသွင်း/ထုတ်ကန့်သတ်ချက်များ
     MIN_BET_AMOUNT: 100,
