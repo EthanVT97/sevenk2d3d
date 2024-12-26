@@ -1,5 +1,11 @@
 <?php
-require_once __DIR__ . '/../../../../vendor/autoload.php';
+require_once __DIR__ . '/../../../vendor/autoload.php';
+
+use Dotenv\Dotenv;
+
+// Load environment variables
+$dotenv = Dotenv::createImmutable(__DIR__ . '/../../../');
+$dotenv->safeLoad();
 
 header('Content-Type: application/json');
 
@@ -9,7 +15,7 @@ try {
     $missing_vars = [];
     
     foreach ($required_vars as $var) {
-        if (!getenv($var)) {
+        if (!isset($_ENV[$var])) {
             $missing_vars[] = $var;
         }
     }
@@ -18,9 +24,9 @@ try {
         throw new Exception('Missing required environment variables: ' . implode(', ', $missing_vars));
     }
 
-    $host = getenv('DB_HOST');
-    $dbname = getenv('DB_NAME');
-    $port = getenv('DB_PORT') ?? '5432';
+    $host = $_ENV['DB_HOST'];
+    $dbname = $_ENV['DB_NAME'];
+    $port = $_ENV['DB_PORT'] ?? '5432';
     
     $dsn = sprintf('pgsql:host=%s;dbname=%s;port=%s', $host, $dbname, $port);
     
@@ -30,7 +36,7 @@ try {
         PDO::ATTR_TIMEOUT => 5,
     ];
     
-    $pdo = new PDO($dsn, getenv('DB_USER'), getenv('DB_PASS'), $options);
+    $pdo = new PDO($dsn, $_ENV['DB_USER'], $_ENV['DB_PASS'], $options);
     
     // Test the connection with a simple query
     $stmt = $pdo->query('SELECT version()');
