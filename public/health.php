@@ -22,7 +22,12 @@ $health = [
         ],
         'application' => [
             'status' => 'healthy',
-            'version' => '1.0.0'
+            'version' => '1.0.0',
+            'cors' => [
+                'origin' => getenv('CORS_ORIGIN') ?: '*',
+                'methods' => 'GET, POST, OPTIONS, PUT, DELETE',
+                'headers' => 'Content-Type, Authorization, X-Requested-With'
+            ]
         ]
     ]
 ];
