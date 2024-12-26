@@ -9,6 +9,13 @@ RewriteCond %{REQUEST_FILENAME} !-d
 RewriteCond %{REQUEST_URI} (.+)/$
 RewriteRule ^ %1 [L,R=301]
 
+# Health check route
+RewriteRule ^health$ health.php [L,NC]
+RewriteRule ^health/$ health.php [L,NC]
+
+# API routes
+RewriteRule ^api/(.*)$ api/$1 [QSA,L]
+
 # Handle front controller
 RewriteCond %{REQUEST_FILENAME} !-d
 RewriteCond %{REQUEST_FILENAME} !-f
