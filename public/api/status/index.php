@@ -2,23 +2,15 @@
 require_once __DIR__ . '/../../../vendor/autoload.php';
 
 header('Content-Type: application/json');
+header('Access-Control-Allow-Origin: ' . (getenv('CORS_ORIGIN') ?: '*'));
+header('Access-Control-Allow-Methods: GET, OPTIONS');
+header('Access-Control-Allow-Headers: Content-Type');
 
-// Initialize response
-$status = [
-    'status' => 'checking',
-    'timestamp' => date('Y-m-d H:i:s'),
-    'uptime' => time() - $_SERVER['REQUEST_TIME'],
-    'services' => [
-        'database' => [
-            'status' => 'checking',
-            'latency' => null
-        ],
-        'api' => [
-            'status' => 'active',
-            'version' => '1.0.0'
-        ]
-    ]
-];
+// Handle preflight requests
+if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
+    http_response_code(204);
+    exit();
+}
 
 try {
     // Quick database check
@@ -46,13 +38,14 @@ try {
     
     $latency = round((microtime(true) - $startTime) * 1000, 2); // Convert to milliseconds
     
-    $status['services']['database'] = [
-        'status' => 'connected',
-        'latency' => $latency . 'ms'
+    $response = [
+        'status' => 'API is running',
+        'database' => 'connected',
+        'latency' => $latency . 'ms',
+        'environment' => getenv('APP_ENV') ?: 'production',
+        'timestamp' => date('Y-m-d H:i:s')
     ];
     
-    // Set overall status
-    $status['status'] = 'operational';
     http_response_code(200);
 
 } catch (Exception $e) {
@@ -61,13 +54,16 @@ try {
         $e->getMessage()
     ));
     
-    $status['services']['database'] = [
-        'status' => 'error',
-        'message' => 'Database connection failed'
+    $response = [
+        'status' => 'API is running',
+        'database' => 'error',
+        'message' => 'Database connection failed',
+        'environment' => getenv('APP_ENV') ?: 'production',
+        'timestamp' => date('Y-m-d H:i:s')
     ];
     
-    $status['status'] = 'degraded';
-    http_response_code(503);
+    // Still return 200 if API is running but DB is down
+    http_response_code(200);
 }
 
-echo json_encode($status, JSON_PRETTY_PRINT); 
+echo json_encode($response, JSON_PRETTY_PRINT); 
